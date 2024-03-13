@@ -1,0 +1,418 @@
+'''
+non-workign combo mono + ccd control
+'''
+# mono imports
+import sys
+sys.path.append('C:/Users/nickp/anaconda3/')
+import logging, configparser, time, serial
+import datetime as dt
+from PyQt5 import QtGui, QtCore, QtWidgets
+import PyQt5.QtWidgets as QWidgets
+# camera import
+from picam import *
+import matplotlib.pyplot as plt
+import numpy as np
+
+plt.ion()
+
+class camera(picam): 
+    def __init__(self): 
+        picam.__init__(self)
+
+    # initializes camera
+    def initializeCamera(self): 
+        self.loadLibrary()
+        self.getAvailableCameras()
+        self.connect()
+        print('connected')
+        self.setParameter("SensorTemperatureSetPoint", -120)
+        # shortest expoure
+        self.setParameter("ExposureTime", 0)
+
+        # # readout mode
+        # self.setParameter("ReadoutControlMode", PicamReadoutControlMode["FullFrame"])
+
+        # custom chip settings
+        self.setROI(0, 1340, 1, 0, 100, 100)
+        self.setParameter("ActiveWidth", 1340)
+        self.setParameter("ActiveHeight", 100)
+        self.setParameter("ActiveLeftMargin", 0)
+        self.setParameter("ActiveRightMargin", 0)
+        self.setParameter("ActiveTopMargin", 8)
+        self.setParameter("ActiveBottomMargin", 8)
+        self.setParameter("VerticalShiftRate", 3.2)    # select fastest
+
+        # # set logic out to not ready
+        # self.setParameter("OutputSignal", PicamOutputSignal["Busy"])
+
+        # # shutter delays; open before trigger corresponds to shutter opening pre delay
+        # self.setParameter("ShutterTimingMode", PicamShutterTimingMode["Normal"])
+        # self.setParameter("ShutterClosingDelay", 0)
+
+        # # sensor cleaning
+        # self.setParameter("CleanSectionFinalHeightCount", 1)
+        # self.setParameter("CleanSectionFinalHeight", 100)
+        # self.setParameter("CleanSerialRegister", False)
+        # self.setParameter("CleanCycleCount", 1)
+        # self.setParameter("CleanCycleHeight", 100)
+        # self.setParameter("CleanUntilTrigger", True)
+
+        # # sensor gain settings
+        # # according to manual, Pixis supports 100kHz and 2MHz; select fastest
+        # self.setParameter("AdcSpeed", 2.0)
+        # self.setParameter("AdcAnalogGain", PicamAdcAnalogGain["Low"])
+        # self.setParameter("AdcQuality", PicamAdcQuality["HighCapacity"])
+
+        # # trigger and timing settings
+        # self.setParameter("TriggerDetermination", PicamTriggerDetermination["PositivePolarity"])
+        # self.setParameter("TriggerResponse", PicamTriggerResponse["ReadoutPerTrigger"])
+
+        # send configuration
+        self.sendConfiguration()
+
+        # # get readout speed
+        # print "Estimated readout time = %f ms" % self.getParameter("ReadoutTimeCalculation")
+    
+    def takeSingleFrame(self, exposure_in_s):
+        clockTime = int(exposure_in_s*1000)
+        self.setParameter("ExposureTime",clockTime)
+        self.sendConfiguration()
+        self.startAcquisition()
+        data = self.waitForFrame(clockTime)
+        time.sleep(0.1)
+        plt.figure()
+        plt.plot(data)
+        plt.show()
+
+class Monochromator(object):
+    ### Initialises a serial port
+    def __init__(self):
+	
+        self.config = configparser.RawConfigParser()
+        self.config.read('mono.cfg')
+        self.comport = self.config.get('Mono_settings', 'com_port')
+        self.mono = serial.Serial(self.comport, timeout=1, baudrate=9600, xonxoff=1, stopbits=1)
+
+        self.current_wavelength = self.config.get('Mono_settings', 'current_wavelength')
+        self.current_laser_wavelength = self.config.get('Settings', 'laser_wavelength')
+        self.speed = self.config.get('Mono_settings', 'speed')
+        self.approach_speed = self.config.get('Mono_settings', 'approach_speed')
+        self.offset = self.config.get('Mono_settings', 'offset')
+        self.nm_per_revolution = self.config.get('Mono_settings', 'nm_per_revolution')
+        self.steps_per_revolution = self.config.get('Mono_settings', 'steps_per_revolution')
+
+    ### sends ascii commands to the serial port and pauses for half a second afterwards
+    def sendcommand(self,command):
+        self.mono.flushInput()
+        self.mono.flushOutput()
+        if (command != "^"):
+            print('Send command: ' + command)
+        #logging.debug('Send command: ' + command)
+        self.mono.write(bytearray(command + '\r\n','ascii'))
+        time.sleep(0.5) 
+        
+    ### reads ascii text from serial port + formatting
+    def readout(self):
+        #time.sleep(0.5)
+        #self.mono.flushInput()
+        value = self.mono.readline().decode("utf-8")
+        return str(value.rstrip().lstrip())
+    
+    ### sets the ramp speed
+    def setRampspeed(self, rampspeed):
+        self.sendcommand('K ' + str(rampspeed))
+    
+    ### sets the initial velocity
+    def setInitialVelocity(self,initspeed): 
+        self.sendcommand('I ' + str(initspeed))
+    
+    ### sets the velocity   
+    def setVelocity(self,velocity):
+        self.sendcommand('V ' + str(velocity))
+        
+    ### checks if the Monochromator is moving (returns True of False) 
+    def moving(self):
+        self.sendcommand('^')
+        a = self.readout()
+        if a[3:].lstrip() == "0":
+            print("Mono is not moving \r")
+            return False
+        else:
+            print("Mono is moving \r")
+            return True
+			
+    def checkfortimeout(self):
+        try:
+            self.sendcommand('X')
+            if self.readout() == None:
+                print('Timeout occured')
+        except:
+            print('Timeout occured')
+            
+    def checkLimitSwitches(self):
+        self.sendcommand("]")
+        a = self.readout()
+        if a[3:].lstrip() == "64":
+            return "Upper"
+        if a[3:].lstrip() == "128":
+            return "Lower"
+        else:
+            return False
+        
+    def checkHOMEstatus(self):
+        self.sendcommand("]")
+        value = self.mono.readline().decode("utf-8")
+        print("HOME Status complete: " + value)
+        print("HOME Status: " + value[3:])
+        return str(value[3:].rstrip().lstrip())
+		
+    def getHomePosition(self): 
+
+        ### This function performs the homing procedure of the monochromator. See
+        ### the mono manual for information about the seperate parameters
+
+        ### move to 510 nm before starting the homing procedure
+
+        self.approachWL(510.0)
+
+        while(self.moving()):
+            self.moving()
+
+        ### begin homing procedure
+
+        self.sendcommand("A8")
+        self.checkHOMEstatus()
+        if(self.checkHOMEstatus() == "32"):
+            self.sendcommand("M+23000")
+            while(self.checkHOMEstatus() != "2"):
+                time.sleep(0.8)
+                self.checkHOMEstatus()
+
+            self.sendcommand("@")
+            self.sendcommand("-108000")
+		
+            while(self.moving()):
+                self.moving()
+				
+            self.sendcommand("+72000")
+
+            while(self.moving()):
+                self.moving()
+				
+            self.sendcommand("A24")
+	            
+            while(self.moving()):
+                self.moving()
+            
+            n1=dt.datetime.now()
+			
+            self.sendcommand("F1000,0")
+
+            while(self.moving()):
+                self.moving()
+                n2=dt.datetime.now()
+                if (((n2.microsecond-n1.microsecond)/1e6) >= 300):
+                    self.sendcommand("@")
+                    print("timeout, stopping")
+                    break
+				
+            self.sendcommand("A0")
+            self.config.set('Mono_settings', 'current_wavelength', '524.9')
+            print("Homing done, setting current wavelength now to 524.9 nm according to mono manual")
+            f = open('mono.cfg',"w")
+            self.config.write(f)
+            Interface.currentMonoWavelengthLabel.setText("524.9 nm")
+		
+    def approachWL(self, approach_wavelength):		
+        Interface.approachButton.setEnabled(False)
+        if isinstance(approach_wavelength, float):
+            print("Wavelength to approach: " + str(approach_wavelength) + " nm")
+            nm_difference = float(approach_wavelength) - float(self.current_wavelength)
+            print("Difference in nm: " + str(nm_difference))
+            step_difference = round(((float(nm_difference) / float(self.nm_per_revolution)) * float(self.steps_per_revolution))+ float(self.offset))
+            print("Difference in steps: " + str(step_difference))  
+            time_needed_sec = abs(step_difference / int(self.speed)) + abs(int(self.offset)/int(self.approach_speed))
+            print("Time needed for operation: " + str(time_needed_sec) + " s")
+            time_delay_for_progressbar = time_needed_sec / 100
+            self.sendcommand("V" + str(self.speed))
+            self.sendcommand(str(format(step_difference, '+')))
+            self.sendcommand("V" + str(self.approach_speed))
+            self.sendcommand("-" + str(self.offset))
+            while True:
+                time.sleep(time_delay_for_progressbar)
+                value = Interface.progressBar.value() + 1
+                Interface.progressBar.setValue(value)
+                QtWidgets.qApp.processEvents()
+                if (value >= Interface.progressBar.maximum()):
+                    Interface.approachButton.setEnabled(True)
+                    Interface.progressBar.setValue(0)
+                    self.config.set('Mono_settings', 'current_wavelength', approach_wavelength)
+                    self.config.set('Settings', 'laser_wavelength', self.current_laser_wavelength)
+                    self.current_wavelength = approach_wavelength
+                    Interface.currentMonoWavelengthLabel.setText(str(self.current_wavelength) + " nm")
+                    f = open('mono.cfg',"w")
+                    self.config.write(f)
+                    break
+        else:
+            print("Input is not numeric")
+            MessageBox = QtGui.QMessageBox.warning(Interface,"Error:","Input is not numeric") 
+            Interface.approachButton.setEnabled(True)
+        
+class Ui_Form(QWidgets.QWidget):
+    ### All UI elements go here
+    def __init__(self):
+
+        ### create main window
+
+        QWidgets.QWidget.__init__(self)
+        self.setWindowTitle('InputDialog')
+
+        ### create tabbed interface
+
+        tab_widget = QtWidgets.QTabWidget()
+        tab1 = QWidgets.QWidget()
+        tab2 = QWidgets.QWidget()
+        tab3 = QWidgets.QWidget()
+        p1_vertical = QtWidgets.QFormLayout(tab1)
+        p2_vertical = QtWidgets.QFormLayout(tab2)
+        p3_vertical = QtWidgets.QFormLayout(tab3)
+        tab_widget.addTab(tab1, "Spectrometer Control")
+        tab_widget.addTab(tab2, "Camera Control") 
+        tab_widget.addTab(tab3, "Raman") 
+
+        ### create label for current mono wavelength
+		
+        self.currentMonoWavelengthLabel = QtWidgets.QLabel(self)
+        self.currentMonoWavelengthLabel.setAlignment(QtCore.Qt.AlignRight)
+        self.currentMonoWavelengthLabel.setText(Mono1.current_wavelength + " nm")
+
+        ### create input field for current laser wavelength for Raman peak calculations
+        
+        self.currentLaserWavelengthInput = QtWidgets.QLineEdit(self)
+        self.currentLaserWavelengthInput.setMaxLength(5)
+        self.currentLaserWavelengthInput.setInputMask("999.9")
+        self.currentLaserWavelengthInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.currentLaserWavelengthInput.setText(Mono1.current_laser_wavelength + " nm")
+
+        ### create input field for wavelength to approach
+
+        self.approachWavelengthInput = QtWidgets.QLineEdit(self)
+        self.approachWavelengthInput.setMaxLength(5)
+        self.approachWavelengthInput.setInputMask("999.9")
+        self.approachWavelengthInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        # self.approachWavelengthInput.textChanged.connect(self.check_state)
+        self.approachWavelengthInput.textChanged.emit(self.approachWavelengthInput.text())
+
+        ### create button to start the mono movement
+
+        self.approachButton = QtWidgets.QPushButton(self)
+        self.approachButton.setObjectName("approachButton")
+        self.approachButton.clicked.connect(lambda: Mono1.approachWL(float(self.approachWavelengthInput.text())))
+        self.approachButton.setText("Approach")
+
+		### create progress bar for mono movement progress indication
+		
+        self.progressBar = QtWidgets.QProgressBar(self)
+        self.progressBar.setProperty("value", 0)
+        self.progressBar.setMaximum(101)
+		
+        ### create button for mono homing procedure
+
+        self.homeButton = QtWidgets.QPushButton(self)
+        self.homeButton.setObjectName("homeButton")
+        self.homeButton.clicked.connect(lambda: Mono1.getHomePosition())
+        self.homeButton.setText("HOME Monochromator")
+
+        ### create exposure time input
+        self.exposureTimeInput = QtWidgets.QLineEdit(self)
+        self.exposureTimeInput.setMaxLength(5)
+        self.exposureTimeInput.setInputMask("999.9")
+        self.exposureTimeInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.exposureTimeInput.textChanged.emit(self.exposureTimeInput.text())
+
+
+        ### create picture button
+        self.camButton = QtWidgets.QPushButton(self)
+        self.camButton.setObjectName("camButton")
+        self.camButton.clicked.connect(lambda: camera.takeSingleFrame(float(self.exposureTimeInput.text())))
+        self.camButton.setText("Take a picture")
+
+        ### create label for current camera temp
+        self.camTempLabel = QtWidgets.QLabel(self)
+        self.camTempLabel.setAlignment(QtCore.Qt.AlignRight)
+        self.camTempLabel.setText(str(camera.getParameter("SensorTemperatureReading")) + " C")
+
+      
+        ### put widgets into the QFormLayout of tab1
+
+        # p1_vertical.addRow("Solvent:", self.combo)
+        p1_vertical.addRow("Current Laser Wavelength:", self.currentLaserWavelengthInput)
+        p1_vertical.addRow("Current Mono Wavelength:", self.currentMonoWavelengthLabel)
+        p1_vertical.addRow("Approach Mono Wavelength:", self.approachWavelengthInput)
+        p1_vertical.addRow(self.progressBar, self.approachButton)
+        p1_vertical.addRow("Move to 524.9 nm:", self.homeButton)
+
+        ### put widgets into the QFormLayout of tab2
+		
+        # p2_vertical.addRow("Move to 524.9 nm:", self.homeButton)
+        p2_vertical.addRow("Current Temp", self.camTempLabel)
+        p2_vertical.addRow("Exposure Time (s)", self.exposureTimeInput)
+        p2_vertical.addRow("take current frame", self.camButton)
+
+        ### set window title and add tab widget to main window
+
+        self.setWindowTitle("Raman control")
+        vbox = QtWidgets.QVBoxLayout()
+        vbox.addWidget(tab_widget)
+        self.setLayout(vbox) 
+
+    def getWavenumber(self, laserWL, monoWL):
+        if(monoWL != "."):
+            wavenumber = abs((1/float(laserWL)) - (1/float(monoWL)))*10000000
+            return int(round(wavenumber,0))
+        
+    # def check_combo_state(self, *args, **kwargs):
+
+    #     ### This function creates an area around the Raman peaks of the solvent
+    #     ### defined in the config file. The range around the peak is defined by
+    #     ### the peak_range setting in the config file.
+
+    #     global raman_peaks_with_offset
+        
+    #     solvent = self.combo.currentText()
+    #     raman_peaks_list = Mono1.config.get('RamanPeaksOfSolvents', solvent)
+    #     raman_range = Mono1.config.get('Settings', 'peak_range')
+    #     raman_peaks = raman_peaks_list.split(",")
+    #     raman_peaks_with_offset = []
+    #     for i in range(len(raman_peaks)):
+    #         raman_peaks_with_offset += list(range(int(raman_peaks[i])-int(raman_range),int(raman_peaks[i])+int(raman_range)))        
+		
+    # def check_state(self, *args, **kwargs):
+
+    #     ### This function checks if the wavelength to approach is in the proximity
+    #     ### of Raman peaks of the solvent. If the target wavelength is not in the
+    #     ### peak_range the background of the input field will be green, otherwise
+    #     ### a yellow background informs the user of a possible Raman feature.
+
+    #     if self.approachWavelengthInput.text() != "NoneType" and self.currentLaserWavelengthInput.text() != "NoneType":
+    #         wavenumbers = self.getWavenumber(self.currentLaserWavelengthInput.text(), self.approachWavelengthInput.text())
+    #         if wavenumbers != None:
+    #             print("Distance to laser line in wavenumbers: " + str(wavenumbers) + " cm^-1")
+    #             if wavenumbers in raman_peaks_with_offset:
+    #                 color = '#f6f498' # yellow
+    #             else:
+    #                 color = '#c4df9b' # green
+    #             self.approachWavelengthInput.setStyleSheet('background-color: %s' % color)
+		
+if __name__ == "__main__":
+
+    Mono1 = Monochromator()
+    print("Initializing communication with Monochromator controller...")
+    camera = camera()
+    camera.initializeCamera()
+    Mono1.sendcommand(' ')        
+    app = QtWidgets.QApplication(sys.argv)
+    Interface = Ui_Form()
+    Interface.show()
+    Interface.setFixedSize(Interface.size());
+    app.exec_()
