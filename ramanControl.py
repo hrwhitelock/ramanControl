@@ -1,5 +1,7 @@
 '''
-non-workign combo mono + ccd control
+to do: 
+-add video mode
+-add actual raman mode lol
 '''
 # mono imports
 import sys
@@ -19,16 +21,30 @@ import numpy as np
 
 plt.ion()
 
+def wavNumToNM(wav, laser):
+    #for a relative shit, not abolsute
+    nm = 1e7/wav +laser
+
 def takeSnapShot():
     img = cam.snap()
 
     signal = []
     pixel = range(len(img[0]))
+    # it would be so much better to use the ROI binning. something weird need to fix
     for i in range(len(img[0])):
         signal.append(sum(img[:, 1]))
 
     plt.plot(pixel, signal)
-    return img
+    plt.show()
+
+    return 
+
+def takeSpectrum(start, stop): 
+    #HARD CODED CONVERSION FOR NOW
+    #FIX THIS DUMBASS
+    
+    
+
 
 class Monochromator(object):
     ### Initialises a serial port
@@ -295,6 +311,25 @@ class Ui_Form(QWidgets.QWidget):
         self.camTempLabel.setAlignment(QtCore.Qt.AlignRight)
         self.camTempLabel.setText(str(cam.get_attribute_value('Sensor Temperature Reading')) + " C")
 
+        ### create start input
+        self.startInput = QtWidgets.QLineEdit(self)
+        self.startTimeInput.setMaxLength(5)
+        self.startTimeInput.setInputMask("999.9")
+        self.startTimeInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.startTimeInput.textChanged.emit(self.startTimeInput.text())
+
+        ### create stop input
+        self.stopInput = QtWidgets.QLineEdit(self)
+        self.stopTimeInput.setMaxLength(5)
+        self.stopTimeInput.setInputMask("999.9")
+        self.stopTimeInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.stopTimeInput.textChanged.emit(self.stopTimeInput.text())
+
+        ### create take spectrum button
+        self.ramanButton = QtWidgets.QPushButton(self)
+        self.camButton.setObjectName("camButton")
+        self.camButton.clicked.connect(lambda: takeSpectrum(self.startTimeInput.text(), self.stopTimeInput.text()))
+        self.camButton.setText("Take raman spectrum")
       
         ### put widgets into the QFormLayout of tab1
 
@@ -312,6 +347,11 @@ class Ui_Form(QWidgets.QWidget):
         p2_vertical.addRow("Exposure Time (s)", self.exposureTimeInput)
         p2_vertical.addRow(self.expButton)
         p2_vertical.addRow("take current frame", self.camButton)
+
+        ### put widgets into the QFormLayout of tab3
+        p3_vertical.addRow()  
+        p2_vertical.addRow("Scan Start (cm^-1)", self.startInput)
+        p2_vertical.addRow("Scan Stop (cm^-1)", self.stopInput)
 
         ### set window title and add tab widget to main window
 

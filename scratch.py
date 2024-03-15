@@ -7,15 +7,17 @@ cam = PrincetonInstruments.PicamCamera()
 
 cam.set_attribute_value("Exposure Time", 0.1)
 cam.get_attribute_value('Sensor Temperature Reading')
+cam.set_roi(0,1340,0,100,1,100)
 
 img = cam.snap()
 
 signal = []
 pixel = range(len(img[0]))
 for i in range(len(img[0])):
-    signal.append(sum(img[:, 1]))
+    signal.append(sum(img[:, i]))
 
 plt.plot(pixel, signal)
+plt.show() 
 
 with PrincetonInstruments.PicamCamera() as cam: # to close the camera automatically
     cam.start_acquisition()  # start acquisition (automatically sets it up as well)
