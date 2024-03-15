@@ -9,80 +9,26 @@ import datetime as dt
 from PyQt5 import QtGui, QtCore, QtWidgets
 import PyQt5.QtWidgets as QWidgets
 # camera import
-from picam import *
+# from picam import *
+import pylablib as pll
+pll.par["devices/dlls/picam"] = "path/to/dlls"
+from pylablib.devices import PrincetonInstruments
+
 import matplotlib.pyplot as plt
 import numpy as np
 
 plt.ion()
 
-class camera(picam): 
-    def __init__(self): 
-        picam.__init__(self)
+def takeSnapShot():
+    img = cam.snap()
 
-    # initializes camera
-    def initializeCamera(self): 
-        self.loadLibrary()
-        self.getAvailableCameras()
-        self.connect()
-        print('connected')
-        self.setParameter("SensorTemperatureSetPoint", -120)
-        # shortest expoure
-        self.setParameter("ExposureTime", 0)
+    signal = []
+    pixel = range(len(img[0]))
+    for i in range(len(img[0])):
+        signal.append(sum(img[:, 1]))
 
-        # # readout mode
-        # self.setParameter("ReadoutControlMode", PicamReadoutControlMode["FullFrame"])
-
-        # custom chip settings
-        self.setROI(0, 1340, 1, 0, 100, 100)
-        self.setParameter("ActiveWidth", 1340)
-        self.setParameter("ActiveHeight", 100)
-        self.setParameter("ActiveLeftMargin", 0)
-        self.setParameter("ActiveRightMargin", 0)
-        self.setParameter("ActiveTopMargin", 8)
-        self.setParameter("ActiveBottomMargin", 8)
-        self.setParameter("VerticalShiftRate", 3.2)    # select fastest
-
-        # # set logic out to not ready
-        # self.setParameter("OutputSignal", PicamOutputSignal["Busy"])
-
-        # # shutter delays; open before trigger corresponds to shutter opening pre delay
-        # self.setParameter("ShutterTimingMode", PicamShutterTimingMode["Normal"])
-        # self.setParameter("ShutterClosingDelay", 0)
-
-        # # sensor cleaning
-        # self.setParameter("CleanSectionFinalHeightCount", 1)
-        # self.setParameter("CleanSectionFinalHeight", 100)
-        # self.setParameter("CleanSerialRegister", False)
-        # self.setParameter("CleanCycleCount", 1)
-        # self.setParameter("CleanCycleHeight", 100)
-        # self.setParameter("CleanUntilTrigger", True)
-
-        # # sensor gain settings
-        # # according to manual, Pixis supports 100kHz and 2MHz; select fastest
-        # self.setParameter("AdcSpeed", 2.0)
-        # self.setParameter("AdcAnalogGain", PicamAdcAnalogGain["Low"])
-        # self.setParameter("AdcQuality", PicamAdcQuality["HighCapacity"])
-
-        # # trigger and timing settings
-        # self.setParameter("TriggerDetermination", PicamTriggerDetermination["PositivePolarity"])
-        # self.setParameter("TriggerResponse", PicamTriggerResponse["ReadoutPerTrigger"])
-
-        # send configuration
-        self.sendConfiguration()
-
-        # # get readout speed
-        # print "Estimated readout time = %f ms" % self.getParameter("ReadoutTimeCalculation")
-    
-    def takeSingleFrame(self, exposure_in_s):
-        clockTime = int(exposure_in_s*1000)
-        self.setParameter("ExposureTime",clockTime)
-        self.sendConfiguration()
-        self.startAcquisition()
-        data = self.waitForFrame(clockTime)
-        time.sleep(0.1)
-        plt.figure()
-        plt.plot(data)
-        plt.show()
+    plt.plot(pixel, signal)
+    return img
 
 class Monochromator(object):
     ### Initialises a serial port
@@ -330,17 +276,24 @@ class Ui_Form(QWidgets.QWidget):
         self.exposureTimeInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.exposureTimeInput.textChanged.emit(self.exposureTimeInput.text())
 
+        ### create button to change exposure time
+        self.expButton = QtWidgets.QPushButton(self)
+        self.expButton.setObjectName("expButton")
+        self.expButton.clicked.connect(lambda: cam.set_attribute_value("Exposure Time", float(self.exposureTimeInput.text())))
+        self.expButton.setText("send exposure time (s) ")
+
+
 
         ### create picture button
         self.camButton = QtWidgets.QPushButton(self)
         self.camButton.setObjectName("camButton")
-        self.camButton.clicked.connect(lambda: camera.takeSingleFrame(float(self.exposureTimeInput.text())))
+        self.camButton.clicked.connect(lambda: takeSnapShot())
         self.camButton.setText("Take a picture")
 
         ### create label for current camera temp
         self.camTempLabel = QtWidgets.QLabel(self)
         self.camTempLabel.setAlignment(QtCore.Qt.AlignRight)
-        self.camTempLabel.setText(str(camera.getParameter("SensorTemperatureReading")) + " C")
+        self.camTempLabel.setText(str(cam.get_attribute_value('Sensor Temperature Reading')) + " C")
 
       
         ### put widgets into the QFormLayout of tab1
@@ -357,6 +310,7 @@ class Ui_Form(QWidgets.QWidget):
         # p2_vertical.addRow("Move to 524.9 nm:", self.homeButton)
         p2_vertical.addRow("Current Temp", self.camTempLabel)
         p2_vertical.addRow("Exposure Time (s)", self.exposureTimeInput)
+        p2_vertical.addRow(self.expButton)
         p2_vertical.addRow("take current frame", self.camButton)
 
         ### set window title and add tab widget to main window
@@ -408,8 +362,8 @@ if __name__ == "__main__":
 
     Mono1 = Monochromator()
     print("Initializing communication with Monochromator controller...")
-    camera = camera()
-    camera.initializeCamera()
+    PrincetonInstruments.list_cameras()
+    cam = PrincetonInstruments.PicamCamera()
     Mono1.sendcommand(' ')        
     app = QtWidgets.QApplication(sys.argv)
     Interface = Ui_Form()
