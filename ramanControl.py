@@ -73,7 +73,7 @@ def takeSpectrum(start, stop, fname):
         start and stop input in nm bc my brain is tired and i keep fucking up the conversion. 
         output saves both nm and cm^-1 so its fine
     '''
-    fpath = os.path.join('path', 'fname')
+    fpath = os.path.join(path, fname)
     file = open(fpath, 'w')
     file.write('wavelength(nm), raman shift(cm^-1), intensity(arb) \n')
     # assumes start and stop input in cm^-1 shift, since thats how we normallyt talk abotu it

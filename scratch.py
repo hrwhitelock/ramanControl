@@ -45,9 +45,11 @@ def takeSpectrum(start, stop):
     #note - this will overshoot! personally, i don't care
     #i'd rather take more data & am writing this so it just takes a fuckload of data
     #can be rewritten in future
-wavelenArr =[]
-wavNumArr = []
-signal = []
+# wavelenArr =[]
+# wavNumArr = []
+# signal = []
+wavelen = []
+raman = []
 data = []
 for pos in np.arange(float(start), float(stop), 1):
     # Mono1.approachWL(pos)
@@ -60,15 +62,12 @@ for pos in np.arange(float(start), float(stop), 1):
     px2 = 1285 # low edge (7nm below)
     deltaL = -7
     pixel = range(0,1340)
-    wavelen = []
-    raman = []
+
     for i in range(0,1340):
         wav = pos+ ((deltaL/(px2-px1))*(pixel[i]-px1))
         wavelen.append(wav)
         raman.append(1/laser - 1/(wav*10**(-7)))
         data.append(np.random.random())
 
-    wavelenArr.append(wavelen) #just adds this arr on, will be out of order, but that is fine for plotting since the data will be indexed the same
-    wavNumArr.append(raman)
 
-    plt.plot(wavNumArr, data)
+    plt.plot(raman, data)
