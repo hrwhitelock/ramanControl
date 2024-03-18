@@ -42,7 +42,18 @@ def takeSnapShot():
 def takeSpectrum(start, stop): 
     #HARD CODED CONVERSION FOR NOW
     #FIX THIS DUMBASS
-    
+    # assumes start and stop input in cm^-1 shift, since thats how we normallyt talk abotu it
+    #start by converting start and stop to nm
+    nmStart = wavNumToNM(start)
+    nmStop = wavNumToNM(stop)
+
+    #now we move the spec to the start 
+    #note - this will overshoot! personally, i don't care
+    #i'd rather take more data & am writing this so it just takes a fuckload of data
+    #can be rewritten in future
+    data = []
+    for pos in np.arange(start, stop, 5)
+        Mono1.approachWL(nmStart)
     
 
 
