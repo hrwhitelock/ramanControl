@@ -2,6 +2,14 @@
 to do: 
 -add video mode
 -add actual raman mode lol
+-add spectrum time calc
+-initialize values
+-error handling for wrong inputs
+-fix ROI bug to remove stupid for loops
+
+known issue: mono control freq loses communication. needs current pos in file to match current positon 
+usually fails if commercial softaware is used
+
 '''
 # mono imports
 import sys
@@ -10,6 +18,11 @@ import logging, configparser, time, serial
 import datetime as dt
 from PyQt5 import QtGui, QtCore, QtWidgets
 import PyQt5.QtWidgets as QWidgets
+
+from tkinter import Tk
+from tkinter.filedialog import askdirectory
+from datetime import date
+import os
 # camera import
 # from picam import *
 import pylablib as pll
@@ -21,9 +34,23 @@ import numpy as np
 
 plt.ion()
 
-def wavNumToNM(wav, laser):
-    #for a relative shit, not abolsute
-    nm = 1e7/wav +laser
+# first, do some house keeping
+# prompt the user for parent directory, then make folder with todays date
+try: 
+    parentDir = askdirectory(title='Select poject folder') # shows dialog box and return the path
+    dataDir = str(date.today())
+    path = os.path.join(parentDir, dataDir)
+    os.mkdir(path)
+except FileExistsError:
+    print('using folder from earlier today')
+
+laser = 532# hard coded bullshit, fix
+
+# def wavNumToNM(wav):
+#     #for a relative shit, not abolsute
+#     wav = float(wav)
+#     nm = 1/(wav + 1/(laser))
+#     return nm
 
 def takeSnapShot():
     img = cam.snap()
@@ -37,23 +64,54 @@ def takeSnapShot():
     plt.plot(pixel, signal)
     plt.show()
 
-    return 
+    return signal
 
-def takeSpectrum(start, stop): 
+def takeSpectrum(start, stop, fname): 
     #HARD CODED CONVERSION FOR NOW
     #FIX THIS DUMBASS
+    '''
+        start and stop input in nm bc my brain is tired and i keep fucking up the conversion. 
+        output saves both nm and cm^-1 so its fine
+    '''
+    fpath = os.path.join('path', 'fname')
+    file = open(fpath, 'w')
+    file.write('wavelength(nm), raman shift(cm^-1), intensity(arb) \n')
     # assumes start and stop input in cm^-1 shift, since thats how we normallyt talk abotu it
-    #start by converting start and stop to nm
-    nmStart = wavNumToNM(start)
-    nmStop = wavNumToNM(stop)
+    # start by converting start and stop to nm
+    # nmStart = wavNumToNM(float(start))
+    # nmStop = wavNumToNM(float(stop))
 
     #now we move the spec to the start 
     #note - this will overshoot! personally, i don't care
     #i'd rather take more data & am writing this so it just takes a fuckload of data
     #can be rewritten in future
+    wavelen =[]
+    wavNum = []
     data = []
-    for pos in np.arange(start, stop, 5)
-        Mono1.approachWL(nmStart)
+    for pos in np.arange(float(start), float(stop), 1):
+        Mono1.approachWL(pos)
+        img = cam.snap()
+        #now figure out what the axis was 
+        #yikes
+        #remember pos is the detector center, not edge
+        #all of this is ahrd coded but should be switched with a calibration process to do at the start f the day
+        px1 = 724 #center wavelength position
+        px2 = 1285 # low edge (7nm below)
+        deltaL = -7
+        pixel = range(0,1340)
+        for i in range(0,1340):
+            wav = pos+ ((deltaL/(px2-px1))*(pixel[i]-px1))
+            waveNum = 1/laser - 1/(wav*10**(-7))
+            signal = sum(img[:, i])
+            wavelen.append(wav)
+            wavNum.append(waveNum)
+            data.append(signal)
+            stringToWrite = str(wav) + ','+str(waveNum) + ','+str(signal)+'\n' 
+            file.write(stringToWrite)
+    plt.plot(wavNum, data)
+
+
+
     
 
 
@@ -324,23 +382,30 @@ class Ui_Form(QWidgets.QWidget):
 
         ### create start input
         self.startInput = QtWidgets.QLineEdit(self)
-        self.startTimeInput.setMaxLength(5)
-        self.startTimeInput.setInputMask("999.9")
-        self.startTimeInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
-        self.startTimeInput.textChanged.emit(self.startTimeInput.text())
+        self.startInput.setMaxLength(5)
+        self.startInput.setInputMask("999.9")
+        self.startInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.startInput.textChanged.emit(self.startInput.text())
 
         ### create stop input
         self.stopInput = QtWidgets.QLineEdit(self)
-        self.stopTimeInput.setMaxLength(5)
-        self.stopTimeInput.setInputMask("999.9")
-        self.stopTimeInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
-        self.stopTimeInput.textChanged.emit(self.stopTimeInput.text())
+        self.stopInput.setMaxLength(5)
+        self.stopInput.setInputMask("999.9")
+        self.stopInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.stopInput.textChanged.emit(self.stopInput.text())
+
+        ### create file name input
+        self.fname = QtWidgets.QLineEdit(self)
+        self.fname.setMaxLength(50)
+        self.fname.setInputMask("file name")
+        self.fname.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.fname.textChanged.emit(self.fname.text())
 
         ### create take spectrum button
         self.ramanButton = QtWidgets.QPushButton(self)
-        self.camButton.setObjectName("camButton")
-        self.camButton.clicked.connect(lambda: takeSpectrum(self.startTimeInput.text(), self.stopTimeInput.text()))
-        self.camButton.setText("Take raman spectrum")
+        self.ramanButton.setObjectName("ramanButton")
+        self.ramanButton.clicked.connect(lambda: takeSpectrum(self.startInput.text(), self.stopInput.text(), self.fname.text()))
+        self.ramanButton.setText("Take raman spectrum")
       
         ### put widgets into the QFormLayout of tab1
 
@@ -359,11 +424,11 @@ class Ui_Form(QWidgets.QWidget):
         p2_vertical.addRow(self.expButton)
         p2_vertical.addRow("take current frame", self.camButton)
 
-        ### put widgets into the QFormLayout of tab3
-        p3_vertical.addRow()  
-        p2_vertical.addRow("Scan Start (cm^-1)", self.startInput)
-        p2_vertical.addRow("Scan Stop (cm^-1)", self.stopInput)
-
+        ### put widgets into the QFormLayout of tab3 
+        p3_vertical.addRow("file name", self.fname)
+        p3_vertical.addRow("Scan Start (cm^-1)", self.startInput)
+        p3_vertical.addRow("Scan Stop (cm^-1)", self.stopInput)
+        p3_vertical.addRow(self.ramanButton)
         ### set window title and add tab widget to main window
 
         self.setWindowTitle("Raman control")
