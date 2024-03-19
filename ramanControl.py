@@ -88,6 +88,8 @@ def takeSpectrum(start, stop, fname):
     wavelen =[]
     wavNum = []
     data = []
+    #sleep for 1 minute to give time to leave the room
+    time.sleep(60)
     for pos in np.arange(float(start), float(stop), 1):
         Mono1.approachWL(pos)
         img = cam.snap()
@@ -99,7 +101,7 @@ def takeSpectrum(start, stop, fname):
         px2 = 1285 # low edge (7nm below)
         deltaL = -7
         pixel = range(0,1340)
-        for i in range(0,1340):
+        for i in range(400,1340):
             wav = pos+ ((deltaL/(px2-px1))*(pixel[i]-px1))
             waveNum = 1/laser - 1/(wav*10**(-7))
             signal = sum(img[:, i])
