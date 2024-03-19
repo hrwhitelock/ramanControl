@@ -1,11 +1,13 @@
 '''
 to do: 
+!!!!!!monochromator is incorrect lmao how did you even do that
 -add video mode
 -add actual raman mode lol
 -add spectrum time calc
 -initialize values
 -error handling for wrong inputs
 -fix ROI bug to remove stupid for loops
+-add update loop for ccd temp
 
 known issue: mono control freq loses communication. needs current pos in file to match current positon 
 usually fails if commercial softaware is used
@@ -59,7 +61,7 @@ def takeSnapShot():
     pixel = range(len(img[0]))
     # it would be so much better to use the ROI binning. something weird need to fix
     for i in range(len(img[0])):
-        signal.append(sum(img[:, 1]))
+        signal.append(sum(img[:, i]))
 
     plt.plot(pixel, signal)
     plt.show()
@@ -97,9 +99,9 @@ def takeSpectrum(start, stop, fname):
         #yikes
         #remember pos is the detector center, not edge
         #all of this is ahrd coded but should be switched with a calibration process to do at the start f the day
-        px1 = 724 #center wavelength position
-        px2 = 1285 # low edge (7nm below)
-        deltaL = -7
+        px1 = 799 #center wavelength position
+        px2 = 426 # high edge (7nm below)
+        deltaL = 22
         pixel = range(0,1340)
         for i in range(400,1340):
             wav = pos+ ((deltaL/(px2-px1))*(pixel[i]-px1))
@@ -294,6 +296,10 @@ class Monochromator(object):
 class Ui_Form(QWidgets.QWidget):
     ### All UI elements go here
     def __init__(self):
+        # self.upate_timer = QTimer(self)
+        # self.upate_timer.setInterval(100) # milliseconds i believe
+        # self.upate_timer.setSingleShot(False)
+        # self.upate_timer.timeout.connect(self.update_label)
 
         ### create main window
 
