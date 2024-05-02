@@ -8,6 +8,8 @@ to do:
 -error handling for wrong inputs
 -fix ROI bug to remove stupid for loops
 -add update loop for ccd temp
+-add calibration 
+-add save button on camera control
 
 known issue: mono control freq loses communication. needs current pos in file to match current positon 
 usually fails if commercial softaware is used
@@ -46,6 +48,7 @@ try:
 except FileExistsError:
     print('using folder from earlier today')
 
+
 laser = 532# hard coded bullshit, fix
 
 # def wavNumToNM(wav):
@@ -54,7 +57,8 @@ laser = 532# hard coded bullshit, fix
 #     nm = 1/(wav + 1/(laser))
 #     return nm
 
-def takeSnapShot():
+def takeSnapShot(fname, pos):
+    # pos is spectrometer position
     img = cam.snap()
 
     signal = []
@@ -65,6 +69,28 @@ def takeSnapShot():
 
     plt.plot(pixel, signal)
     plt.show()
+
+    # now save this spec
+    # this is clunky, you should be able to separate this later
+    fpath = os.path.join(path, fname)
+    file = open(fpath, 'w')
+    file.write('wavelength(nm), raman shift(cm^-1), intensity(arb) \n')
+    wavelen =[]
+    wavNum = []
+    data = []
+    px1 = 799 #center wavelength position
+    px2 = 426 # high edge (7nm below)
+    deltaL = 22
+    pixel = range(0,1340)
+    for i in range(400,1340):
+        wav = pos+ ((deltaL/(px2-px1))*(pixel[i]-px1))
+        waveNum = 1/laser - 1/(wav*10**(-7))
+        signal = sum(img[:, i])
+        wavelen.append(wav)
+        wavNum.append(waveNum)
+        data.append(signal)
+        stringToWrite = str(wav) + ','+str(waveNum) + ','+str(signal)+'\n' 
+        file.write(stringToWrite)    
 
     return signal
 
@@ -92,8 +118,8 @@ def takeSpectrum(start, stop, fname):
     data = []
     #sleep for 1 minute to give time to leave the room
     time.sleep(60)
-    for pos in np.arange(float(start), float(stop), 1):
-        Mono1.approachWL(pos)
+    for pos in np.arange(float(start), float(stop), 7):
+        # Mono1.approachWL(pos)
         img = cam.snap()
         #now figure out what the axis was 
         #yikes
@@ -319,48 +345,48 @@ class Ui_Form(QWidgets.QWidget):
         tab_widget.addTab(tab2, "Camera Control") 
         tab_widget.addTab(tab3, "Raman") 
 
-        ### create label for current mono wavelength
+        # ### create label for current mono wavelength
 		
-        self.currentMonoWavelengthLabel = QtWidgets.QLabel(self)
-        self.currentMonoWavelengthLabel.setAlignment(QtCore.Qt.AlignRight)
-        self.currentMonoWavelengthLabel.setText(Mono1.current_wavelength + " nm")
+        # self.currentMonoWavelengthLabel = QtWidgets.QLabel(self)
+        # self.currentMonoWavelengthLabel.setAlignment(QtCore.Qt.AlignRight)
+        # self.currentMonoWavelengthLabel.setText(Mono1.current_wavelength + " nm")
 
-        ### create input field for current laser wavelength for Raman peak calculations
+        # ### create input field for current laser wavelength for Raman peak calculations
         
-        self.currentLaserWavelengthInput = QtWidgets.QLineEdit(self)
-        self.currentLaserWavelengthInput.setMaxLength(5)
-        self.currentLaserWavelengthInput.setInputMask("999.9")
-        self.currentLaserWavelengthInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
-        self.currentLaserWavelengthInput.setText(Mono1.current_laser_wavelength + " nm")
+        # self.currentLaserWavelengthInput = QtWidgets.QLineEdit(self)
+        # self.currentLaserWavelengthInput.setMaxLength(5)
+        # self.currentLaserWavelengthInput.setInputMask("999.9")
+        # self.currentLaserWavelengthInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        # self.currentLaserWavelengthInput.setText(Mono1.current_laser_wavelength + " nm")
 
-        ### create input field for wavelength to approach
+        # ### create input field for wavelength to approach
 
-        self.approachWavelengthInput = QtWidgets.QLineEdit(self)
-        self.approachWavelengthInput.setMaxLength(5)
-        self.approachWavelengthInput.setInputMask("999.9")
-        self.approachWavelengthInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
-        # self.approachWavelengthInput.textChanged.connect(self.check_state)
-        self.approachWavelengthInput.textChanged.emit(self.approachWavelengthInput.text())
+        # self.approachWavelengthInput = QtWidgets.QLineEdit(self)
+        # self.approachWavelengthInput.setMaxLength(5)
+        # self.approachWavelengthInput.setInputMask("999.9")
+        # self.approachWavelengthInput.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        # # self.approachWavelengthInput.textChanged.connect(self.check_state)
+        # self.approachWavelengthInput.textChanged.emit(self.approachWavelengthInput.text())
 
-        ### create button to start the mono movement
+        # ### create button to start the mono movement
 
-        self.approachButton = QtWidgets.QPushButton(self)
-        self.approachButton.setObjectName("approachButton")
-        self.approachButton.clicked.connect(lambda: Mono1.approachWL(float(self.approachWavelengthInput.text())))
-        self.approachButton.setText("Approach")
+        # self.approachButton = QtWidgets.QPushButton(self)
+        # self.approachButton.setObjectName("approachButton")
+        # self.approachButton.clicked.connect(lambda: Mono1.approachWL(float(self.approachWavelengthInput.text())))
+        # self.approachButton.setText("Approach")
 
-		### create progress bar for mono movement progress indication
+		# ### create progress bar for mono movement progress indication
 		
-        self.progressBar = QtWidgets.QProgressBar(self)
-        self.progressBar.setProperty("value", 0)
-        self.progressBar.setMaximum(101)
+        # self.progressBar = QtWidgets.QProgressBar(self)
+        # self.progressBar.setProperty("value", 0)
+        # self.progressBar.setMaximum(101)
 		
-        ### create button for mono homing procedure
+        # ### create button for mono homing procedure
 
-        self.homeButton = QtWidgets.QPushButton(self)
-        self.homeButton.setObjectName("homeButton")
-        self.homeButton.clicked.connect(lambda: Mono1.getHomePosition())
-        self.homeButton.setText("HOME Monochromator")
+        # self.homeButton = QtWidgets.QPushButton(self)
+        # self.homeButton.setObjectName("homeButton")
+        # self.homeButton.clicked.connect(lambda: Mono1.getHomePosition())
+        # self.homeButton.setText("HOME Monochromator")
 
         ### create exposure time input
         self.exposureTimeInput = QtWidgets.QLineEdit(self)
@@ -380,8 +406,15 @@ class Ui_Form(QWidgets.QWidget):
         ### create picture button
         self.camButton = QtWidgets.QPushButton(self)
         self.camButton.setObjectName("camButton")
-        self.camButton.clicked.connect(lambda: takeSnapShot())
+        self.camButton.clicked.connect(lambda: takeSnapShot(self.fname, self.pos))
         self.camButton.setText("Take a picture")
+
+        ### create input for mono position
+        self.pos = QtWidgets.QLineEdit(self)
+        self.pos.setMaxLength(5)
+        self.pos.setInputMask("999.9")
+        self.pos.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
+        self.pos.textChanged.emit(self.pos.text())
 
         ### create label for current camera temp
         self.camTempLabel = QtWidgets.QLabel(self)
@@ -417,12 +450,12 @@ class Ui_Form(QWidgets.QWidget):
       
         ### put widgets into the QFormLayout of tab1
 
-        # p1_vertical.addRow("Solvent:", self.combo)
-        p1_vertical.addRow("Current Laser Wavelength:", self.currentLaserWavelengthInput)
-        p1_vertical.addRow("Current Mono Wavelength:", self.currentMonoWavelengthLabel)
-        p1_vertical.addRow("Approach Mono Wavelength:", self.approachWavelengthInput)
-        p1_vertical.addRow(self.progressBar, self.approachButton)
-        p1_vertical.addRow("Move to 524.9 nm:", self.homeButton)
+        # # p1_vertical.addRow("Solvent:", self.combo)
+        # p1_vertical.addRow("Current Laser Wavelength:", self.currentLaserWavelengthInput)
+        # p1_vertical.addRow("Current Mono Wavelength:", self.currentMonoWavelengthLabel)
+        # p1_vertical.addRow("Approach Mono Wavelength:", self.approachWavelengthInput)
+        # p1_vertical.addRow(self.progressBar, self.approachButton)
+        # p1_vertical.addRow("Move to 524.9 nm:", self.homeButton)
 
         ### put widgets into the QFormLayout of tab2
 		
@@ -430,10 +463,11 @@ class Ui_Form(QWidgets.QWidget):
         p2_vertical.addRow("Current Temp", self.camTempLabel)
         p2_vertical.addRow("Exposure Time (s)", self.exposureTimeInput)
         p2_vertical.addRow(self.expButton)
-        p2_vertical.addRow("take current frame", self.camButton)
+        p2_vertical.addRow('file name', self.fname)
+        p2_vertical.addRow("take and savecurrent frame", self.camButton)
 
         ### put widgets into the QFormLayout of tab3 
-        p3_vertical.addRow("file name", self.fname)
+        #p3_vertical.addRow("file name", self.fname)
         p3_vertical.addRow("Scan Start (cm^-1)", self.startInput)
         p3_vertical.addRow("Scan Stop (cm^-1)", self.stopInput)
         p3_vertical.addRow(self.ramanButton)
@@ -449,46 +483,14 @@ class Ui_Form(QWidgets.QWidget):
             wavenumber = abs((1/float(laserWL)) - (1/float(monoWL)))*10000000
             return int(round(wavenumber,0))
         
-    # def check_combo_state(self, *args, **kwargs):
 
-    #     ### This function creates an area around the Raman peaks of the solvent
-    #     ### defined in the config file. The range around the peak is defined by
-    #     ### the peak_range setting in the config file.
-
-    #     global raman_peaks_with_offset
-        
-    #     solvent = self.combo.currentText()
-    #     raman_peaks_list = Mono1.config.get('RamanPeaksOfSolvents', solvent)
-    #     raman_range = Mono1.config.get('Settings', 'peak_range')
-    #     raman_peaks = raman_peaks_list.split(",")
-    #     raman_peaks_with_offset = []
-    #     for i in range(len(raman_peaks)):
-    #         raman_peaks_with_offset += list(range(int(raman_peaks[i])-int(raman_range),int(raman_peaks[i])+int(raman_range)))        
-		
-    # def check_state(self, *args, **kwargs):
-
-    #     ### This function checks if the wavelength to approach is in the proximity
-    #     ### of Raman peaks of the solvent. If the target wavelength is not in the
-    #     ### peak_range the background of the input field will be green, otherwise
-    #     ### a yellow background informs the user of a possible Raman feature.
-
-    #     if self.approachWavelengthInput.text() != "NoneType" and self.currentLaserWavelengthInput.text() != "NoneType":
-    #         wavenumbers = self.getWavenumber(self.currentLaserWavelengthInput.text(), self.approachWavelengthInput.text())
-    #         if wavenumbers != None:
-    #             print("Distance to laser line in wavenumbers: " + str(wavenumbers) + " cm^-1")
-    #             if wavenumbers in raman_peaks_with_offset:
-    #                 color = '#f6f498' # yellow
-    #             else:
-    #                 color = '#c4df9b' # green
-    #             self.approachWavelengthInput.setStyleSheet('background-color: %s' % color)
-		
 if __name__ == "__main__":
 
-    Mono1 = Monochromator()
-    print("Initializing communication with Monochromator controller...")
+    # Mono1 = Monochromator()
+    # print("Initializing communication with Monochromator controller...")
     PrincetonInstruments.list_cameras()
     cam = PrincetonInstruments.PicamCamera()
-    Mono1.sendcommand(' ')        
+    # Mono1.sendcommand(' ')        
     app = QtWidgets.QApplication(sys.argv)
     Interface = Ui_Form()
     Interface.show()

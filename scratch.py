@@ -2,13 +2,19 @@ import pylablib as pll
 pll.par["devices/dlls/picam"] = "path/to/dlls"
 from pylablib.devices import PrincetonInstruments
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 PrincetonInstruments.list_cameras()
 cam = PrincetonInstruments.PicamCamera()
 
-cam.set_attribute_value("Exposure Time", 0.1)
+cam.set_attribute_value("Exposure Time",30)
 cam.get_attribute_value('Sensor Temperature Reading')
 # cam.set_attribute_value("ROIs", CPicamRoi(x=0,width=1340,x_binning0,100,1,100])
 # cam.set_
+fname = 'sto_test.txt'
+fpath = os.path.join(path, fname)
+file = open(fpath, 'a')
 
 img = cam.snap()
 
@@ -19,6 +25,19 @@ for i in range(len(img[0])):
 
 plt.plot(pixel, signal)
 plt.show() 
+
+
+nmArr = []
+cmArr = []
+
+for i in range(1340):
+     nm = (-7/(1299-744)*(i-744)+555)
+     nmArr.append(nm)
+     cm = 10000000/532 -10000000/nm
+     cmArr.append(cm)
+
+for i in range(len(signal)):
+    file.write(str(nmArr[i]) + ','+str(cmArr[i])+','+str(signal[i])+'\n')
 
 with PrincetonInstruments.PicamCamera() as cam: # to close the camera automatically
     cam.start_acquisition()  # start acquisition (automatically sets it up as well)
