@@ -321,7 +321,7 @@ class Monochromator(object):
         
 class Ui_Form(QWidgets.QWidget):
     ### All UI elements go here
-    def __init__(self):
+    def __init__(self,cam):
         # self.upate_timer = QTimer(self)
         # self.upate_timer.setInterval(100) # milliseconds i believe
         # self.upate_timer.setSingleShot(False)
@@ -330,7 +330,8 @@ class Ui_Form(QWidgets.QWidget):
         ### create main window
 
         QWidgets.QWidget.__init__(self)
-        self.setWindowTitle('InputDialog')
+        self.setWindowTitle('Steve control')
+        self.setWindowIcon(QtGui.QIcon('icon.png'))
 
         ### create tabbed interface
 
@@ -464,6 +465,7 @@ class Ui_Form(QWidgets.QWidget):
         p2_vertical.addRow("Exposure Time (s)", self.exposureTimeInput)
         p2_vertical.addRow(self.expButton)
         p2_vertical.addRow('file name', self.fname)
+        p2_vertical.addRow("mono position", self.pos)
         p2_vertical.addRow("take and savecurrent frame", self.camButton)
 
         ### put widgets into the QFormLayout of tab3 
@@ -483,16 +485,22 @@ class Ui_Form(QWidgets.QWidget):
             wavenumber = abs((1/float(laserWL)) - (1/float(monoWL)))*10000000
             return int(round(wavenumber,0))
         
-
-if __name__ == "__main__":
-
+def main(): 
+    app = QtWidgets.QApplication(sys.argv)
+    pixmap = QtGui.QPixmap('icon.png')
+    splash = QtWidgets.QSplashScreen(pixmap)
+    splash.show()
     # Mono1 = Monochromator()
     # print("Initializing communication with Monochromator controller...")
     PrincetonInstruments.list_cameras()
     cam = PrincetonInstruments.PicamCamera()
-    # Mono1.sendcommand(' ')        
-    app = QtWidgets.QApplication(sys.argv)
-    Interface = Ui_Form()
+    # Mono1.sendcommand(' ')  
+    app.processEvents()
+    Interface = Ui_Form(cam)
     Interface.show()
-    Interface.setFixedSize(Interface.size());
+    Interface.setFixedSize(Interface.size())
+    splash.finish(Interface)
     app.exec_()
+
+if __name__ == "__main__":
+    main()
