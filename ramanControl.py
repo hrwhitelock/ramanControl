@@ -36,6 +36,10 @@ from pylablib.devices import PrincetonInstruments
 import matplotlib.pyplot as plt
 import numpy as np
 
+import ctypes
+myappid = 'reznik.ramanControl.steve.01' # arbitrary string
+ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
 plt.ion()
 
 # first, do some house keeping
@@ -500,6 +504,7 @@ def main():
     Interface.show()
     Interface.setFixedSize(Interface.size())
     splash.finish(Interface)
+    app.setWindowIcon(QtGui.QIcon('icon.png'))
     app.exec_()
 
 if __name__ == "__main__":
