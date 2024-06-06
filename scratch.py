@@ -8,15 +8,15 @@ import numpy as np
 PrincetonInstruments.list_cameras()
 cam = PrincetonInstruments.PicamCamera()
 
-cam.set_attribute_value("Exposure Time",30)
+cam.set_attribute_value("Exposure Time",1000*300)
 cam.get_attribute_value('Sensor Temperature Reading')
 # cam.set_attribute_value("ROIs", CPicamRoi(x=0,width=1340,x_binning0,100,1,100])
 # cam.set_
-fname = 'sto_test.txt'
+fname = 'k3_4_real_actual_this_time_no_really.txt'
 fpath = os.path.join(path, fname)
 file = open(fpath, 'a')
 
-img = cam.snap()
+img = cam.snap(timeout = 1e6)
 
 signal = []
 pixel = range(len(img[0]))
@@ -31,7 +31,7 @@ nmArr = []
 cmArr = []
 
 for i in range(1340):
-     nm = (-7/(1299-744)*(i-744)+555)
+     nm = (-7/(1299-744)*(i-744)+597)
      nmArr.append(nm)
      cm = 10000000/532 -10000000/nm
      cmArr.append(cm)

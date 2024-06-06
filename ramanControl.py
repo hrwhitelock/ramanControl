@@ -11,6 +11,12 @@ to do:
 -add calibration 
 -add save button on camera control
 
+-Qtimer bug --> are you using the correct pyqt?
+-move file select to button maybe? idk this is shitty control software
+
+-tkinter import bug outside of ipython???
+
+
 known issue: mono control freq loses communication. needs current pos in file to match current positon 
 usually fails if commercial softaware is used
 
@@ -20,6 +26,7 @@ import sys
 sys.path.append('C:/Users/nickp/anaconda3/')
 import logging, configparser, time, serial
 import datetime as dt
+import PyQt5
 from PyQt5 import QtGui, QtCore, QtWidgets
 import PyQt5.QtWidgets as QWidgets
 
@@ -41,17 +48,6 @@ myappid = 'reznik.ramanControl.steve.01' # arbitrary string
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
 plt.ion()
-
-# first, do some house keeping
-# prompt the user for parent directory, then make folder with todays date
-try: 
-    parentDir = askdirectory(title='Select poject folder') # shows dialog box and return the path
-    dataDir = str(date.today())
-    path = os.path.join(parentDir, dataDir)
-    os.mkdir(path)
-except FileExistsError:
-    print('using folder from earlier today')
-
 
 laser = 532# hard coded bullshit, fix
 
@@ -326,16 +322,18 @@ class Monochromator(object):
 class Ui_Form(QWidgets.QWidget):
     ### All UI elements go here
     def __init__(self,cam):
-        # self.upate_timer = QTimer(self)
-        # self.upate_timer.setInterval(100) # milliseconds i believe
-        # self.upate_timer.setSingleShot(False)
-        # self.upate_timer.timeout.connect(self.update_label)
 
         ### create main window
 
-        QWidgets.QWidget.__init__(self)
+        QWidgets.QWidget.__init__(self) # important that this step happens first -> class inheritance bullshit
         self.setWindowTitle('Steve control')
         self.setWindowIcon(QtGui.QIcon('icon.png'))
+
+        ### add update timer
+        self.upate_timer = QtCore.QTimer()
+        self.upate_timer.setInterval(100) # milliseconds i believe
+        self.upate_timer.setSingleShot(False)
+        # self.upate_timer.timeout.connect(self.update_label)
 
         ### create tabbed interface
 
@@ -424,7 +422,10 @@ class Ui_Form(QWidgets.QWidget):
         ### create label for current camera temp
         self.camTempLabel = QtWidgets.QLabel(self)
         self.camTempLabel.setAlignment(QtCore.Qt.AlignRight)
-        self.camTempLabel.setText(str(cam.get_attribute_value('Sensor Temperature Reading')) + " C")
+        # self.camTempLabel.setText(str(cam.get_attribute_value('Sensor Temperature Reading')) + " C")
+        # lets temporarily attach this to a random number gen to check if the timer loop is working
+        self.camTempLabel.setText(str(np.random.rand()))
+
 
         ### create start input
         self.startInput = QtWidgets.QLineEdit(self)
@@ -506,6 +507,17 @@ def main():
     splash.finish(Interface)
     app.setWindowIcon(QtGui.QIcon('icon.png'))
     app.exec_()
+    # housekeeping - force user to choose save folder
+    # try: 
+    #     parentDir = askdirectory(title='Select poject folder') # shows dialog box and return the path
+    #     dataDir = str(date.today())
+    #     path = os.path.join(parentDir, dataDir)
+    #     os.mkdir(path)
+    # except FileExistsError:
+    #     print('using folder from earlier today')
+
+
+
 
 if __name__ == "__main__":
     main()
