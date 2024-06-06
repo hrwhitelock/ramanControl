@@ -16,6 +16,8 @@ to do:
 
 -tkinter import bug outside of ipython???
 
+-don't fucking use csv thats the dumbest file type
+
 
 known issue: mono control freq loses communication. needs current pos in file to match current positon 
 usually fails if commercial softaware is used
@@ -333,7 +335,7 @@ class Ui_Form(QWidgets.QWidget):
         self.upate_timer = QtCore.QTimer()
         self.upate_timer.setInterval(100) # milliseconds i believe
         self.upate_timer.setSingleShot(False)
-        # self.upate_timer.timeout.connect(self.update_label)
+        self.update_timer.timeout.connect(lambda: self.camTempLabel.setText(str(cam.get_attribute_value('Sensor Temperature Reading')) + " C"))
 
         ### create tabbed interface
 
