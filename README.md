@@ -2,7 +2,7 @@ GUI for raman control
 Written for the Reznik lab at CU Boulder by Hope Whitelock & Cole Shank
 
 ### to-do - write this documentation on how to use the GUI. I think it's self explanatory but still
-### these to-dos are for hope, pls leave it alone and stop using a flash drive
+### 
 
 current project: 
 adding a setup file to turn this into a stand alone executable
