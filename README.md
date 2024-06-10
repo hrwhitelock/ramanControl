@@ -1,6 +1,9 @@
-to do: 
--add save file button
--add calibration fuction
--uggggghhhh
--add exit behavior, need to close camera on closing app
--make self executable
+GUI for raman control
+Written for the Reznik lab at CU Boulder by Hope Whitelock & Cole Shank
+
+### to-do - write this documentation on how to use the GUI. I think it's self explanatory but still
+### these to-dos are for hope, pls leave it alone and stop using a flash drive
+
+current project: 
+adding a setup file to turn this into a stand alone executable
+should be launchable from icon
